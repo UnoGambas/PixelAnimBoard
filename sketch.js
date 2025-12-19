@@ -9,8 +9,7 @@ let filmstripHeight = 74; // 74px 높이의 필름 스트립 영역
 const PREVIEW_AREA_WIDTH = 148; // 오른쪽 프리뷰 영역(여유 포함) 너비
 
 // 애니메이션 설정
-const MAX_FRAMES = 24; // 최대 수용 프레임 수 (필요 시 코드에서 늘릴 수 있음)
-let totalFrames = MAX_FRAMES; // 현재 사용 중인 프레임 수
+let totalFrames = 24; // 현재 사용 중인 프레임 수 (필요 시 자유롭게 늘어남)
 let currentFrame = 0;
 let previewFrame = 0;
 let fps = 8;
@@ -86,7 +85,7 @@ function preload() {
 
 function setup() {
     // 캔버스 크기 설정 (그리드 + 필름 스트립)
-    gridHeight = min(windowWidth, windowHeight) * 0.7; // 메인 그리드 크기
+    gridHeight = min(windowWidth, windowHeight) * 0.6; // 메인 그리드 크기
     pixelSize = gridHeight / canvasSize;
     
     // 메인 그리드 + 오른쪽 프리뷰 영역까지 포함한 캔버스
@@ -95,21 +94,19 @@ function setup() {
     if (do1Sound) do1Sound.setVolume(0.5);
     if (dragSound) dragSound.setVolume(0.5);
 
-    // 애니메이션 데이터 초기화
-    let white = color(255);
-    animationData = Array(MAX_FRAMES).fill(null).map(() =>
-        Array(canvasSize).fill(null).map(() =>
-            Array(canvasSize).fill(white)
-        )
-    );
+    // 애니메이션 데이터 초기화 (현재 프레임 수만큼 동적 생성)
+    animationData = [];
+    for (let i = 0; i < totalFrames; i++) {
+        animationData.push(createBlankFrame());
+    }
     currentColor = color(0);
 
     // 미리보기 캔버스 생성
     previewCanvas = createGraphics(128, 128);
     previewCanvas.noSmooth();
     
-    // 썸네일 그래픽 버퍼 24개 생성 (데이터 전용)
-    for (let i = 0; i < MAX_FRAMES; i++) {
+    // 썸네일 그래픽 버퍼 (각 프레임당 1개)
+    for (let i = 0; i < totalFrames; i++) {
         let gfx = createGraphics(canvasSize, canvasSize);
         gfx.noSmooth();
         gfx.background(255); // 흰색으로 초기화
@@ -177,11 +174,10 @@ function setup() {
     inputTotalFrames.position(80, yPos);
     inputTotalFrames.size(50);
     inputTotalFrames.elt.min = '1';
-    inputTotalFrames.elt.max = String(MAX_FRAMES);
     inputTotalFrames.input(onTotalFramesInput);
 
     // FPS (좌측)
-    yPos += 40;
+    yPos += 30;
     labelFPS = createP('FPS: 8');
     labelFPS.position(10, yPos - 16);
     sliderFPS = createSlider(1, 24, fps, 1);
@@ -193,7 +189,7 @@ function setup() {
     });
 
     // 캔버스 크기 선택 (좌측)
-    yPos += 40;
+    yPos += 30;
     selectCanvasSize = createSelect();
     selectCanvasSize.position(10, yPos);
     selectCanvasSize.option('16 x 16', 16);
@@ -203,7 +199,7 @@ function setup() {
     selectCanvasSize.changed(onCanvasSizeChange);
 
     // 저장 (좌측)
-    yPos += 40;
+    yPos += 30;
     inputFileName = createInput('sprite-sheet.png');
     inputFileName.position(10, yPos);
     inputFileName.size(140);
@@ -216,7 +212,7 @@ function setup() {
     inputLoadSheet.position(btnSaveSheet.x + btnSaveSheet.width + 10, yPos);
     
     // Undo/Redo/Copy/Paste (좌측)
-    yPos += 40;
+    yPos += 30;
     btnUndo = createButton('↶ Undo');
     btnRedo = createButton('↷ Redo');
     btnCopy = createButton('📋 Copy Frame');
@@ -231,7 +227,7 @@ function setup() {
     btnPaste.mousePressed(pasteFrame);
 
     // 프레임 삽입/삭제/복제 버튼
-    yPos += 40;
+    yPos += 30;
     btnAddFrame = createButton('+ Frame');
     btnDeleteFrame = createButton('- Frame');
     btnDuplicateFrame = createButton('Clone');
@@ -371,7 +367,7 @@ function mouseReleased() {
 }
 
 function windowResized() {
-    gridHeight = min(windowWidth, windowHeight) * 0.7;
+    gridHeight = min(windowWidth, windowHeight) * 0.6;
     pixelSize = gridHeight / canvasSize;
     resizeCanvas(gridHeight + PREVIEW_AREA_WIDTH, gridHeight + filmstripHeight);
 
@@ -404,23 +400,23 @@ function windowResized() {
         inputTotalFrames.position(80, yPos);
     }
 
-    yPos += 40;
+    yPos += 30;
     labelFPS.position(10, yPos - 16);
     sliderFPS.position(60, yPos);
-    yPos += 40;
+    yPos += 30;
     if (selectCanvasSize) {
         selectCanvasSize.position(10, yPos);
     }
-    yPos += 40;
+    yPos += 30;
     inputFileName.position(10, yPos);
     btnSaveSheet.position(inputFileName.x + inputFileName.width + 10, yPos);
     inputLoadSheet.position(btnSaveSheet.x + btnSaveSheet.width + 10, yPos);
-    yPos += 40;
+    yPos += 30;
     btnUndo.position(10, yPos);
     btnRedo.position(btnUndo.x + btnUndo.width + 5, yPos);
     btnCopy.position(btnRedo.x + btnRedo.width + 5, yPos);
     btnPaste.position(btnCopy.x + btnCopy.width + 5, yPos);
-    yPos += 40;
+    yPos += 30;
     if (btnAddFrame && btnDeleteFrame && btnDuplicateFrame) {
         btnAddFrame.position(10, yPos);
         btnDeleteFrame.position(btnAddFrame.x + btnAddFrame.width + 5, yPos);
@@ -773,8 +769,9 @@ function drawPixel(frameIndex, col, row, c) {
 
 function saveUndoSnapshot() {
     // 현재 animationData를 RGBA 숫자 배열로 깊은 복사해서 스냅샷으로 저장
-    let snapshot = [];
-    for (let f = 0; f < MAX_FRAMES; f++) {
+    let frameCount = animationData.length;
+    let framesSnap = [];
+    for (let f = 0; f < frameCount; f++) {
         let frameSnap = [];
         for (let c = 0; c < canvasSize; c++) {
             let colSnap = [];
@@ -789,8 +786,10 @@ function saveUndoSnapshot() {
             }
             frameSnap.push(colSnap);
         }
-        snapshot.push(frameSnap);
+        framesSnap.push(frameSnap);
     }
+
+    let snapshot = { frames: framesSnap };
 
     undoStack.push(snapshot);
     redoStack = []; // Redo 스택 초기화
@@ -910,24 +909,17 @@ function pasteFrame() {
 
 // 현재 프레임 뒤에 빈 프레임 삽입
 function insertFrameAfter() {
-    if (totalFrames >= MAX_FRAMES) {
-        logMessage(`프레임을 더 추가할 수 없습니다. (최대 ${MAX_FRAMES}프레임)`);
-        return;
-    }
-
     let insertIndex = currentFrame + 1;
-
-    // 뒤에서부터 한 칸씩 밀기
-    for (let f = totalFrames; f > insertIndex; f--) {
-        animationData[f] = animationData[f - 1];
-        thumbnailGraphics[f] = thumbnailGraphics[f - 1];
-    }
-
-    // 새 빈 프레임 삽입
-    animationData[insertIndex] = createBlankFrame();
+    
+    // 새 빈 프레임을 현재 프레임 뒤에 삽입
+    animationData.splice(insertIndex, 0, createBlankFrame());
+    let gfx = createGraphics(canvasSize, canvasSize);
+    gfx.noSmooth();
+    gfx.background(255);
+    thumbnailGraphics.splice(insertIndex, 0, gfx);
     updateThumbnail(insertIndex);
 
-    totalFrames++;
+    totalFrames = animationData.length;
     currentFrame = insertIndex;
     ensureFrameVisible(currentFrame);
     saveUndoSnapshot();
@@ -966,24 +958,17 @@ function deleteCurrentFrame() {
 
 // 현재 프레임 복제 후 뒤에 삽입
 function duplicateCurrentFrame() {
-    if (totalFrames >= MAX_FRAMES) {
-        logMessage(`프레임을 더 복제할 수 없습니다. (최대 ${MAX_FRAMES}프레임)`);
-        return;
-    }
-
     let insertIndex = currentFrame + 1;
-
-    // 뒤에서부터 한 칸씩 밀기
-    for (let f = totalFrames; f > insertIndex; f--) {
-        animationData[f] = animationData[f - 1];
-        thumbnailGraphics[f] = thumbnailGraphics[f - 1];
-    }
-
+    
     // 현재 프레임 깊은 복사 후 삽입
-    animationData[insertIndex] = cloneFrameData(currentFrame);
+    animationData.splice(insertIndex, 0, cloneFrameData(currentFrame));
+    let gfx = createGraphics(canvasSize, canvasSize);
+    gfx.noSmooth();
+    gfx.background(255);
+    thumbnailGraphics.splice(insertIndex, 0, gfx);
     updateThumbnail(insertIndex);
 
-    totalFrames++;
+    totalFrames = animationData.length;
     currentFrame = insertIndex;
     ensureFrameVisible(currentFrame);
     saveUndoSnapshot();
@@ -1111,12 +1096,18 @@ function onImageLoaded(img) {
     }
 
     const loadedFrames = img.width / canvasSize;
-    if (loadedFrames > MAX_FRAMES) {
-        logMessage(`[오류] 최대 ${MAX_FRAMES}프레임까지 지원합니다. (이미지에는 ${loadedFrames}프레임이 있습니다.)`);
-        return;
-    }
-
     totalFrames = loadedFrames;
+
+    // 로드된 프레임 수에 맞춰 데이터/썸네일 배열 재구성
+    animationData = [];
+    thumbnailGraphics = [];
+    for (let f = 0; f < totalFrames; f++) {
+        animationData.push(createBlankFrame());
+        let gfx = createGraphics(canvasSize, canvasSize);
+        gfx.noSmooth();
+        gfx.background(255);
+        thumbnailGraphics.push(gfx);
+    }
 
     img.loadPixels();
 
@@ -1137,9 +1128,16 @@ function onImageLoaded(img) {
     }
     
     updateAllThumbnails();
+    currentFrame = 0;
+    previewFrame = 0;
     renderPreview(currentFrame);
-    
-    logMessage('스프라이트 시트를 성공적으로 불러왔습니다.');
+
+    // 로드 이후 Undo/Redo 스택 초기화
+    undoStack = [];
+    redoStack = [];
+    saveUndoSnapshot();
+
+    logMessage(`스프라이트 시트를 성공적으로 불러왔습니다. (총 ${totalFrames}프레임)`);
 }
 
 // --- 7. 로그 유틸리티 ---
@@ -1151,30 +1149,31 @@ function onTotalFramesInput() {
     let v = int(inputTotalFrames.value());
     if (isNaN(v)) return;
 
-    v = constrain(v, 1, MAX_FRAMES);
+    // 최소 1프레임은 유지
+    v = max(1, v);
 
     if (v === totalFrames) {
-        // 값이 같으면 UI만 정규화
         inputTotalFrames.value(String(totalFrames));
         return;
     }
 
-    // 새로 사용하는 프레임/사용하지 않는 프레임을 초기화해 예측 가능하게 유지
     if (v > totalFrames) {
-        // 늘어나는 구간은 빈 프레임으로 초기화
+        // 부족한 만큼 뒤에 새 프레임 추가
         for (let f = totalFrames; f < v; f++) {
-            animationData[f] = createBlankFrame();
+            animationData.push(createBlankFrame());
+            let gfx = createGraphics(canvasSize, canvasSize);
+            gfx.noSmooth();
+            gfx.background(255);
+            thumbnailGraphics.push(gfx);
             updateThumbnail(f);
         }
     } else {
-        // 줄어드는 구간은 다시 사용할 수 있도록 미리 흰색으로 초기화
-        for (let f = v; f < totalFrames; f++) {
-            animationData[f] = createBlankFrame();
-            updateThumbnail(f);
-        }
+        // 남는 프레임 잘라내기
+        animationData.splice(v);
+        thumbnailGraphics.splice(v);
     }
 
-    totalFrames = v;
+    totalFrames = animationData.length;
 
     if (currentFrame >= totalFrames) {
         currentFrame = totalFrames - 1;
@@ -1200,24 +1199,18 @@ function onCanvasSizeChange() {
     canvasSize = newSize;
     pixelSize = gridHeight / canvasSize;
 
-    // 애니메이션 데이터 다시 생성 (모든 프레임 흰색)
-    let white = color(255);
-    animationData = Array(MAX_FRAMES).fill(null).map(() =>
-        Array(canvasSize).fill(null).map(() =>
-            Array(canvasSize).fill(white)
-        )
-    );
-
-    // 썸네일 그래픽도 새로 생성
+    // 애니메이션 데이터/썸네일을 새 캔버스 크기에 맞게 다시 생성
+    totalFrames = 1;
+    animationData = [];
     thumbnailGraphics = [];
-    for (let i = 0; i < MAX_FRAMES; i++) {
+    for (let i = 0; i < totalFrames; i++) {
+        animationData.push(createBlankFrame());
         let gfx = createGraphics(canvasSize, canvasSize);
         gfx.noSmooth();
         gfx.background(255);
         thumbnailGraphics.push(gfx);
     }
 
-    totalFrames = 1;
     currentFrame = 0;
     previewFrame = 0;
     frameOffset = 0;
@@ -1235,13 +1228,16 @@ function onCanvasSizeChange() {
 
 // Undo/Redo 스냅샷을 animationData로 복원하는 헬퍼
 function restoreFromSnapshot(snapshot) {
+    let framesSnap = snapshot.frames || [];
+    let frameCount = framesSnap.length;
+
     let newData = [];
-    for (let f = 0; f < MAX_FRAMES; f++) {
+    for (let f = 0; f < frameCount; f++) {
         let frameData = [];
         for (let c = 0; c < canvasSize; c++) {
             let colArr = [];
             for (let r = 0; r < canvasSize; r++) {
-                let rgba = snapshot[f][c][r];
+                let rgba = framesSnap[f][c][r];
                 colArr.push(color(rgba[0], rgba[1], rgba[2], rgba[3]));
             }
             frameData.push(colArr);
@@ -1249,6 +1245,19 @@ function restoreFromSnapshot(snapshot) {
         newData.push(frameData);
     }
     animationData = newData;
+    totalFrames = animationData.length;
+
+    // 썸네일 그래픽 버퍼 길이 보정
+    if (thumbnailGraphics.length < totalFrames) {
+        for (let i = thumbnailGraphics.length; i < totalFrames; i++) {
+            let gfx = createGraphics(canvasSize, canvasSize);
+            gfx.noSmooth();
+            gfx.background(255);
+            thumbnailGraphics.push(gfx);
+        }
+    } else if (thumbnailGraphics.length > totalFrames) {
+        thumbnailGraphics.length = totalFrames;
+    }
 }
 
 function logMessage(msg) {
